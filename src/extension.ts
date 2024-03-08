@@ -14,7 +14,10 @@ import * as childProcess from 'child_process';
 import * as util from 'util';
 import * as fs from 'fs';
 
-const EXTENSION_NAME = 'automatic-knative-service-manipulation';
+const EXTENSION_NAME = "automatic-knative-service-manipulation";
+const OUTPUT_CHANNEL_NAME = "Automatic Knative Service Manipulation - Logs";
+
+const outputChannel = vscode.window.createOutputChannel(OUTPUT_CHANNEL_NAME);
 const exec = util.promisify(childProcess.exec);
 
 /**
@@ -23,7 +26,7 @@ const exec = util.promisify(childProcess.exec);
  * @param {vscode.ExtensionContext} context - The context where the extension is executed.
  */
 export function activate(context: vscode.ExtensionContext) {
-	console.log(`Extension "${EXTENSION_NAME}" is activated.\n`);
+	printLogInfo(`Extension "${EXTENSION_NAME}" is activated.\n`);
 
 	// Command for deploying the Knative service to Kubernetes
 	let cmdDeployment = vscode.commands.registerCommand(`${EXTENSION_NAME}.deployService`, async () => {
@@ -70,6 +73,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// Command for testing if the extension is activated and working properly
 	let cmdHelloWorld = vscode.commands.registerCommand(`${EXTENSION_NAME}.testExtension`, () => {
 		vscode.window.showInformationMessage(`Extension ${EXTENSION_NAME} is working properly.`);
+		printLogInfo(`Extension ${EXTENSION_NAME} is working properly.\n`);
 	});
 
 	context.subscriptions.push(cmdHelloWorld, cmdDeployment, cmdGetServiceInfo, cmdDelete);
@@ -122,8 +126,8 @@ async function deployKnativeService(registryName: string, imageName: string) {
 	if (!applyConfSuccess) {
 		return;
 	}
-	console.log(`Knative service "${kantiveServiceName}" is deployed.`);
-	console.log(`You can use command "Get Service Info" to check its details.`);
+	printLogInfo(`Knative service "${kantiveServiceName}" is deployed.`);
+	printLogInfo(`You can use command "Get Service Info" to check its details.`);
 }
 
 /**
@@ -134,7 +138,7 @@ async function deployKnativeService(registryName: string, imageName: string) {
 async function createDockerfile(workSpaceFolderPath: string) {
 	const dockerFilePath = `${workSpaceFolderPath}/Dockerfile`;
 	vscode.window.showInformationMessage(`Creating the Dockerfile.`);
-	console.log("Start creating the Dockerfile.");
+	printLogInfo("Start creating the Dockerfile.");
 	const DOCKERFILE_CONTENT =
 		`FROM python:3.8-slim
 COPY . /app
@@ -145,7 +149,7 @@ EXPOSE 5000
 CMD ["python3", "app.py"]`;
 	fs.writeFileSync(dockerFilePath, DOCKERFILE_CONTENT);
 	vscode.window.showInformationMessage(`Succcessfully created the Dockerfile.`);
-	console.log("Successfully created the Dockerfile.\n");
+	printLogInfo("Successfully created the Dockerfile.\n");
 }
 
 /**
@@ -158,11 +162,11 @@ CMD ["python3", "app.py"]`;
 async function buildDockerImage(dockerImageUri: string, contextDir: string): Promise<boolean> {
 	const buildImageCmd = `docker build -t ${dockerImageUri} .`;
 	vscode.window.showInformationMessage(`Building the Docker image "${dockerImageUri}".`);
-	console.log("Start building the Docker image.");
+	printLogInfo("Start building the Docker image.");
 	try {
 		const { stdout, stderr } = await exec(buildImageCmd, { cwd: contextDir });
 		vscode.window.showInformationMessage(`Succcessfully built the Docker image.`);
-		console.log(`Successfully built the Docker image "${dockerImageUri}".\n`);
+		printLogInfo(`Successfully built the Docker image "${dockerImageUri}".\n`);
 		return true;
 	} catch (error) {
 		vscode.window.showErrorMessage(`Failed to build the Docker image.`);
@@ -180,11 +184,11 @@ async function buildDockerImage(dockerImageUri: string, contextDir: string): Pro
 async function pushDockerImage(dockerImageUri: string): Promise<boolean> {
 	const pushImageCmd = `docker push ${dockerImageUri}`;
 	vscode.window.showInformationMessage(`Pushing the Docker image.`);
-	console.log("Start pushing the Docker image.");
+	printLogInfo("Start pushing the Docker image.");
 	try {
 		const { stdout, stderr } = await exec(pushImageCmd);
 		vscode.window.showInformationMessage(`Succcessfully pushed the Docker image.`);
-		console.log(`Successfully pushed the Docker image ${dockerImageUri}.\n`);
+		printLogInfo(`Successfully pushed the Docker image ${dockerImageUri}.\n`);
 		return true;
 	} catch (error) {
 		vscode.window.showErrorMessage(`Failed to push the Docker image.`);
@@ -214,10 +218,10 @@ spec:
         ports:
         - containerPort: 5000`;
 	vscode.window.showInformationMessage(`Creating the Knative configuration.`);
-	console.log("Start creating the Knative configuration.");
+	printLogInfo("Start creating the Knative configuration.");
 	fs.writeFileSync(knativeConfPath, knativeConfContent);
 	vscode.window.showInformationMessage(`Succcessfully created the Knative configuration.`);
-	console.log("Successfully created the Knative configuration.\n");
+	printLogInfo("Successfully created the Knative configuration.\n");
 }
 
 /**
@@ -229,11 +233,11 @@ spec:
 async function applyKnativeConf(knativeConfPath: string): Promise<boolean> {
 	const applyConfCmd = `kubectl apply -f ${knativeConfPath}`;
 	vscode.window.showInformationMessage(`Applying the Knative configuration.`);
-	console.log("Start applying the Knative configuration.");
+	printLogInfo("Start applying the Knative configuration.");
 	try {
 		const { stdout, stderr } = await exec(applyConfCmd);
 		vscode.window.showInformationMessage(`Succcessfully deployed the Knative service to Kubernetes.`);
-		console.log("Successfully applied the Knative configuration.\n");
+		printLogInfo("Successfully applied the Knative configuration.\n");
 		return true;
 	} catch (error) {
 		vscode.window.showErrorMessage(`Failed to deploy the Knative service to Kubernetes.`);
@@ -254,7 +258,7 @@ async function printKnativeServiceInfo(serviceName: string) {
 	try {
 		// Retrieve the service information in JSON format
 		const { stdout, stderr } = await exec(getServiceInfoCmd);
-		console.log("========== Deployed Knative Service Information ==========");
+		printLogInfo("========== Deployed Knative Service Information ==========");
 		const serviceInfoJson = JSON.parse(stdout);
 		const status = serviceInfoJson.status.conditions.find((cond: any) => cond.type === "Ready").status;
 		const url = serviceInfoJson.status.url;
@@ -262,8 +266,8 @@ async function printKnativeServiceInfo(serviceName: string) {
 		let serviceInfo = `Service Name: ${serviceName}\n`;
 		serviceInfo += `Status: ${status === "True" ? "Ready" : "Not Ready\n"}`;
 		serviceInfo += `URL: ${url}`;
-		console.log(serviceInfo);
-		console.log("==========================================================\n");
+		printLogInfo(serviceInfo);
+		printLogInfo("==========================================================\n");
 	} catch (error) {
 		vscode.window.showErrorMessage("Failed to print Knative service information.");
 		console.error("Failed to print Knative service info: ", error);
@@ -280,14 +284,27 @@ async function printKnativeServiceInfo(serviceName: string) {
 async function deleteKnativeService(serviceName: string) {
 	const deleteServiceCmd = `kubectl delete ksvc ${serviceName}`;
 	vscode.window.showInformationMessage(`Deleting the Knative service ${serviceName}.`);
-	console.log(`Start deleting the Knative service ${serviceName}.`);
+	printLogInfo(`Start deleting the Knative service ${serviceName}.`);
 	try {
 		const { stdout, stderr } = await exec(deleteServiceCmd);
 		vscode.window.showInformationMessage(`Successfully deleted the Knative service: ${serviceName}`);
-		console.log(`Successfully deleted the Knative service ${serviceName}.\n`);
+		printLogInfo(`Successfully deleted the Knative service ${serviceName}.\n`);
 
 	} catch (error) {
 		console.error(error);
 		vscode.window.showErrorMessage(`Failed to delete the service: ${serviceName}`);
 	}
+}
+
+
+/* ===================================== Utils ======================================*/
+
+/**
+ * Display the message in the user's terminal.
+ * 
+ * @param message Message to be displayed to the user.
+ */
+async function printLogInfo(message: string) {
+    outputChannel.appendLine("[AKSM] " + message);
+    outputChannel.show(true);
 }

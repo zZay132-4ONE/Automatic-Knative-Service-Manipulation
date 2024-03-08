@@ -34,9 +34,9 @@ It currently supports the following commands:
 
 1. Search for the extension "Automatic Knative Service Manipulation" in the marketplace and install it.
 
-2. Open the folder containing the Flask app ready to run (the file should be named `app.py`). <u>Here I provide a folder called "quickstart", which contains a Flask app running a text classification ML task. You can conduct a brief test on the extension under the folder.</u>
+2. Open the folder containing the Flask app ready to run (the file should be named `app.py`). <u>Here I provide a folder called "quickstart", which contains a Flask app running a text classification ML task. You can conduct a brief test on the extension under the folder **(Ensure the root folder opened is "quickstart")**.</u>
 
-3. In the VS Code palette, execute `Test Extension` to test whether the extension is working properly.
+3. In the VS Code palette (`Ctrl+Shift+P` or `Cmd+Shift+P` for Mac), execute `Test Extension` to test whether the extension is working properly.
 
 4. To deploy the Knative service on the local Kubernetes for running the Flask app, execute `Deploy Service` in the VS Code palette. 
 
@@ -44,9 +44,9 @@ It currently supports the following commands:
 
     - Enter the desired Docker image name.
 
-    - Now the deployment process will start. You can check the debug terminal for latest progress.
+    - Now the deployment process will start. You can check the log terminal for latest progress.
 
-    - After successfully deploying the Knative service, the service name will be printed in the debug terminal.
+    - After successfully deploying the Knative service, the service name will be printed in the log terminal.
 
 5. To get the detailed information about the deployed Knative service, execute `Get Service Info` in the VS Code palette. You will need to enter the name of the Knative service.
 

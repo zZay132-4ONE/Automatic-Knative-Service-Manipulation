@@ -3,7 +3,7 @@
   "displayName": "Automatic Knative Service Manipulation",
   "description": "Help developers automatically deploying Knative services to the Kubernetes cluster.",
   "publisher": "DongzhiZhang",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "icon": "images/icon.png",
   "repository": {
     "type": "git",
