@@ -1,4 +1,4 @@
-# Automatic Manipulation on Knative Service 
+# Automatic Knative Service Manipulation
 
 ## Introduction
 

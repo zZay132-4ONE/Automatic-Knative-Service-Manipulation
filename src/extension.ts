@@ -14,7 +14,7 @@ import * as childProcess from 'child_process';
 import * as util from 'util';
 import * as fs from 'fs';
 
-const EXTENSION_NAME = 'automatic-manipulation-on-knative-service';
+const EXTENSION_NAME = 'automatic-knative-service-manipulation';
 const exec = util.promisify(childProcess.exec);
 
 /**
