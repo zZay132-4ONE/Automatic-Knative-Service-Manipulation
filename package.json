@@ -4,6 +4,7 @@
   "description": "Help developers automatically deploying Knative services to the Kubernetes cluster.",
   "publisher": "DongzhiZhang",
   "version": "1.0.0",
+  "icon": "images/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/zZay132-4ONE/Automatic-Knative-Service-Manipulation"

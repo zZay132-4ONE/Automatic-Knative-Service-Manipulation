@@ -32,9 +32,9 @@ It currently supports the following commands:
 
 ## Example Usage
 
-1. Search for the extension "" in the marketplace and install it.
+1. Search for the extension "Automatic Knative Service Manipulation" in the marketplace and install it.
 
-2. Open the folder containing the Flask app ready to run (the file should be named `app.py`).
+2. Open the folder containing the Flask app ready to run (the file should be named `app.py`). <u>Here I provide a folder called "quickstart", which contains a Flask app running a text classification ML task. You can conduct a brief test on the extension under the folder.</u>
 
 3. In the VS Code palette, execute `Test Extension` to test whether the extension is working properly.
 
