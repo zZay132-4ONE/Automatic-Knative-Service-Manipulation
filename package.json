@@ -2,6 +2,7 @@
   "name": "automatic-manipulation-on-knative-service",
   "displayName": "automatic-manipulation-on-knative-service",
   "description": "Help developers automatically deploying a Knative service, which contains a Flask application, to the Kubernetes cluster.",
+  "publisher": "DongzhiZhang",
   "version": "1.0.0",
   "repository": {
     "type": "git",
