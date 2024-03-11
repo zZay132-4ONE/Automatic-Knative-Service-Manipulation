@@ -1,9 +1,9 @@
 {
   "name": "automatic-knative-service-manipulation",
   "displayName": "Automatic Knative Service Manipulation",
-  "description": "Help developers automatically deploying Knative services to the Kubernetes cluster.",
+  "description": "Help developers automatically automatically manipulate Knative services on the Kubernetes cluster efficiently.",
   "publisher": "DongzhiZhang",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "icon": "images/icon.png",
   "repository": {
     "type": "git",
@@ -21,19 +21,23 @@
     "commands": [
       {
         "command": "automatic-knative-service-manipulation.deployService",
-        "title": "Deploy Service"
+        "title": "Deploy Knative Service"
       },
       {
-        "command": "automatic-knative-service-manipulation.getServiceInfo",
-        "title": "Get Service Info"
+        "command": "automatic-knative-service-manipulation.describeService",
+        "title": "Describe Knative Service"
+      },
+      {
+        "command": "automatic-knative-service-manipulation.describeAllServices",
+        "title": "Describe All Knative Services"
       },
       {
         "command": "automatic-knative-service-manipulation.deleteService",
-        "title": "Delete Service"
+        "title": "Delete Knative Service"
       },
       {
         "command": "automatic-knative-service-manipulation.testExtension",
-        "title": "Test Extension"
+        "title": "Test AKSM"
       }
     ]
   },

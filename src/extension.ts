@@ -1,10 +1,13 @@
 /**
- * A VS Code extension which can help developers automatically deploying Knative services to the Kubernetes cluster. 
+ * A VS Code extension helps developers automatically manipulate Knative services on the Kubernetes cluster efficiently 
+ * (e.g., deploying Knative services, retrieving details about Knative Services, deleting Knative services).
+ * 
  * It currently supports the following commands:
- * 	- Deploy Service: deploy a Knative service to Kubernetes (require inputs "register name" and "image name").
- *  - Get Service Info: print detailed information about the specified Knative service (require input "service name").
- *  - Delete Service: delete the specified Knative Service (require input "service name").
- *  - Test Extension: test whether the extension is working properly.
+ * 	- Deploy Knative Service: Deploy a Knative service to the Kubernetes cluster (specified by the input "registry name" and "image name").
+ *  - Describe Knative Service: Print detailed information about a Knative service (specified by the input "service name").
+ *  - Describe All Knative Services: Print detailed information about all Knative services.
+ *  - Delete Knative Service: Delete a Knative Service (specified by the input "service name").
+ *  - Test AKSM: Test whether the extension is working properly.
  * 
  * @author Dongzhi Zhang
  */
@@ -28,55 +31,22 @@ const exec = util.promisify(childProcess.exec);
 export function activate(context: vscode.ExtensionContext) {
 	printLogInfo(`Extension "${EXTENSION_NAME}" is activated.\n`);
 
-	// Command for deploying the Knative service to Kubernetes
-	let cmdDeployment = vscode.commands.registerCommand(`${EXTENSION_NAME}.deployService`, async () => {
-		vscode.window.showInformationMessage(`Start to deploy the task to Knative.`);
-		const registryName = await vscode.window.showInputBox({
-			prompt: "Please enter the name of the Docker image registry",
-			placeHolder: "docker.io/username"
-		});
-		const imageName = await vscode.window.showInputBox({
-			prompt: "Please enter the name of the Docker image",
-			placeHolder: `${EXTENSION_NAME}`
-		});
-		if (!registryName || !imageName) {
-			vscode.window.showErrorMessage("Deployment terminated: valid registry and image name must be provided.");
-			return;
-		}
-		deployKnativeService(registryName, imageName);
-	});
-
-	// Command for printing detailed information about the specified Knative service
-	let cmdGetServiceInfo = vscode.commands.registerCommand(`${EXTENSION_NAME}.getServiceInfo`, async () => {
-		const serviceName = await vscode.window.showInputBox({
-			prompt: "Please enter the name of the service"
-		});
-		if (!serviceName) {
-			vscode.window.showErrorMessage("Service name must be provided.");
-			return;
-		}
-		printKnativeServiceInfo(serviceName);
-	});
-
-	// Command for deleting the Knative service from the Kubernetes cluster
-	let cmdDelete = vscode.commands.registerCommand(`${EXTENSION_NAME}.deleteService`, async () => {
-		const serviceName = await vscode.window.showInputBox({
-			prompt: "Please enter the name of the service to be deleted"
-		});
-		if (!serviceName) {
-			vscode.window.showErrorMessage("Service name must be provided.");
-			return;
-		}
-		deleteKnativeService(serviceName);
-	});
-
 	// Command for testing if the extension is activated and working properly
-	let cmdHelloWorld = vscode.commands.registerCommand(`${EXTENSION_NAME}.testExtension`, () => {
-		vscode.window.showInformationMessage(`Extension ${EXTENSION_NAME} is working properly.`);
-		printLogInfo(`Extension ${EXTENSION_NAME} is working properly.\n`);
-	});
+	let cmdTestExtension = vscode.commands.registerCommand(`${EXTENSION_NAME}.testExtension`, callTestExtension);
 
-	context.subscriptions.push(cmdHelloWorld, cmdDeployment, cmdGetServiceInfo, cmdDelete);
+	// Command for deploying a Knative service to Kubernetes cluster
+	let cmdDeployService = vscode.commands.registerCommand(`${EXTENSION_NAME}.deployService`, callDeployKnativeService);
+
+	// Command for printing detailed information about a specified Knative service
+	let cmdDescribeService = vscode.commands.registerCommand(`${EXTENSION_NAME}.describeService`, callDescribeKnativeService);
+
+	// Command for printing detailed information about all Knative services
+	let cmdDescribeAllServices = vscode.commands.registerCommand(`${EXTENSION_NAME}.describeAllServices`, callDescribeAllKnativeServices);
+
+	// Command for deleting a specified Knative service from the Kubernetes cluster
+	let cmdDeleteService = vscode.commands.registerCommand(`${EXTENSION_NAME}.deleteService`, callDeleteKnativeService);
+
+	context.subscriptions.push(cmdTestExtension, cmdDeployService, cmdDescribeService, cmdDescribeAllServices, cmdDeleteService);
 }
 
 /**
@@ -84,14 +54,34 @@ export function activate(context: vscode.ExtensionContext) {
  */
 export function deactivate() { }
 
-/* ============================== Command: Deploy Task ==============================*/
+/* ======================== Command: Deploy Knative Service =========================*/
+
+/**
+ * This function is invoked when command "Deploy Knative Service" is executed.
+ */
+async function callDeployKnativeService() {
+	vscode.window.showInformationMessage(`Start deploying the Knative service to Kubernetes cluster.`);
+	const registryName = await vscode.window.showInputBox({
+		prompt: "Please enter the name of the Docker image registry",
+		placeHolder: "docker.io/username"
+	});
+	const imageName = await vscode.window.showInputBox({
+		prompt: "Please enter the name of the Docker image",
+		placeHolder: `${EXTENSION_NAME}`
+	});
+	if (!registryName || !imageName) {
+		vscode.window.showErrorMessage("Deployment terminated: valid registry and image name must be provided.");
+		return;
+	}
+	deployKnativeService(registryName, imageName);
+}
 
 /**
  * This function automates the process of deploying a Knative service to Kubernetes:
  * 	(1) Create the Dockerfile. 
- * 	(2) Build the Docker image based on the Dockerfile.
- * 	(3) Push the built Docker image to the registry.
- * 	(4) Creat the Knative service YAML configuration.
+ * 	(2) Creat the Knative service YAML configuration.
+ * 	(3) Build the Docker image based on the Dockerfile.
+ * 	(4) Push the built Docker image to the registry.
  * 	(5) Apply the YAML configuration and deploy the Knative service to the Kubernetes cluster.
  * 
  * @param registryName Name of the Docker image registry.
@@ -105,10 +95,15 @@ async function deployKnativeService(registryName: string, imageName: string) {
 		return;
 	}
 
-	// Create the Dockerfile, build the Docker image based on it, and push the image to the registry
+	// Create the Dockerfile and the YAML file for Knative configuration 
 	const workSpaceFolderPath = workspaceFolders[0].uri.fsPath;
 	const dockerImageUri = `${registryName}/${imageName}`;
 	await createDockerfile(workSpaceFolderPath);
+	const knativeConfPath = `${workSpaceFolderPath}/${imageName}-service.yaml`;
+	const knativeServiceName = `${imageName}-service`;
+	await createKnativeConf(knativeConfPath, dockerImageUri, knativeServiceName);
+
+	// Build the Docker image based on the Dockerfile and push the image to the registry
 	const buildImageSuccess = await buildDockerImage(dockerImageUri, workSpaceFolderPath);
 	if (!buildImageSuccess) {
 		return;
@@ -117,17 +112,13 @@ async function deployKnativeService(registryName: string, imageName: string) {
 	if (!pushImageSuccess) {
 		return;
 	}
-
-	// Create the YAML file for Knative to deploy the service and apply the configuration
-	const knativeConfPath = `${workSpaceFolderPath}/${imageName}-service.yaml`;
-	const kantiveServiceName = `${imageName}-service`;
-	await createKnativeConf(knativeConfPath, dockerImageUri, kantiveServiceName);
+	// Apply the YAML configuration and deploy the Knative service to Kubernetes 
 	const applyConfSuccess = await applyKnativeConf(knativeConfPath);
 	if (!applyConfSuccess) {
 		return;
 	}
-	printLogInfo(`Knative service "${kantiveServiceName}" is deployed.`);
-	printLogInfo(`You can use command "Get Service Info" to check its details.`);
+	printLogInfo(`Knative service "${knativeServiceName}" is deployed.`);
+	printLogInfo(`You can use command "Describe Knative Service" or "Describe All Knative Services" to check details.\n`);
 }
 
 /**
@@ -144,7 +135,7 @@ async function createDockerfile(workSpaceFolderPath: string) {
 COPY . /app
 WORKDIR /app
 RUN pip3 install --upgrade pip
-RUN pip3 install flask torch transformers 
+RUN pip3 install -r requirements.txt 
 EXPOSE 5000
 CMD ["python3", "app.py"]`;
 	fs.writeFileSync(dockerFilePath, DOCKERFILE_CONTENT);
@@ -165,11 +156,12 @@ async function buildDockerImage(dockerImageUri: string, contextDir: string): Pro
 	printLogInfo("Start building the Docker image.");
 	try {
 		const { stdout, stderr } = await exec(buildImageCmd, { cwd: contextDir });
-		vscode.window.showInformationMessage(`Succcessfully built the Docker image.`);
+		vscode.window.showInformationMessage(`Succcessfully built the Docker image "${dockerImageUri}".`);
 		printLogInfo(`Successfully built the Docker image "${dockerImageUri}".\n`);
 		return true;
 	} catch (error) {
-		vscode.window.showErrorMessage(`Failed to build the Docker image.`);
+		vscode.window.showErrorMessage(`Failed to build the Docker image "${dockerImageUri}".`);
+		printLogInfo(`Failed to build the Docker image "${dockerImageUri}".`);
 		console.error(error);
 		return false;
 	}
@@ -187,11 +179,12 @@ async function pushDockerImage(dockerImageUri: string): Promise<boolean> {
 	printLogInfo("Start pushing the Docker image.");
 	try {
 		const { stdout, stderr } = await exec(pushImageCmd);
-		vscode.window.showInformationMessage(`Succcessfully pushed the Docker image.`);
-		printLogInfo(`Successfully pushed the Docker image ${dockerImageUri}.\n`);
+		vscode.window.showInformationMessage(`Succcessfully pushed the Docker image "${dockerImageUri}".`);
+		printLogInfo(`Successfully pushed the Docker image "${dockerImageUri}".\n`);
 		return true;
 	} catch (error) {
-		vscode.window.showErrorMessage(`Failed to push the Docker image.`);
+		vscode.window.showErrorMessage(`Failed to push the Docker image "${dockerImageUri}".`);
+		printLogInfo(`Failed to push the Docker image "${dockerImageUri}".\n`);
 		console.error(error);
 		return false;
 	}
@@ -204,14 +197,18 @@ async function pushDockerImage(dockerImageUri: string): Promise<boolean> {
  * @param dockerImageUri URI of the docker image to be built.
  * @param kantiveServiceName Name of the Knative service.
  */
-async function createKnativeConf(knativeConfPath: string, dockerImageUri: string, kantiveServiceName: string) {
+async function createKnativeConf(knativeConfPath: string, dockerImageUri: string, knativeServiceName: string) {
 	const knativeConfContent =
 		`apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: ${kantiveServiceName}
+  name: ${knativeServiceName}
 spec:
   template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "4"
     spec:
       containers:
       - image: ${dockerImageUri}
@@ -237,44 +234,132 @@ async function applyKnativeConf(knativeConfPath: string): Promise<boolean> {
 	try {
 		const { stdout, stderr } = await exec(applyConfCmd);
 		vscode.window.showInformationMessage(`Succcessfully deployed the Knative service to Kubernetes.`);
-		printLogInfo("Successfully applied the Knative configuration.\n");
+		printLogInfo("Succcessfully deployed the Knative service to Kubernetes.\n");
 		return true;
 	} catch (error) {
 		vscode.window.showErrorMessage(`Failed to deploy the Knative service to Kubernetes.`);
+		printLogInfo("Failed to deploy the Knative service to Kubernetes.\n");
 		console.error(error);
 		return false;
 	}
 }
 
-/* ============================ Command: Get Service Info ===========================*/
+/* ======================== Command: Describe Knative Service =======================*/
+
+/**
+ * This function is invoked when command "Describe Knative Service" is executed.
+ */
+async function callDescribeKnativeService() {
+	const serviceName = await vscode.window.showInputBox({
+		prompt: "Please enter the name of the Knative service",
+		placeHolder: "xxx-service"
+	});
+	if (!serviceName) {
+		vscode.window.showErrorMessage("Name of the Knative service must be provided.");
+		printLogInfo("Name of the Knative service must be provided.\n");
+		return;
+	}
+	describeKnativeService(serviceName);
+}
 
 /**
  * Print useful information about the deployed Knative service.
  * 
  * @param serviceName Name of the Knative service.
  */
-async function printKnativeServiceInfo(serviceName: string) {
-	const getServiceInfoCmd = `kubectl get ksvc ${serviceName} -o json`;
+async function describeKnativeService(serviceName: string) {
+	const describeServiceCmd = `kubectl get ksvc ${serviceName} -o json`;
 	try {
 		// Retrieve the service information in JSON format
-		const { stdout, stderr } = await exec(getServiceInfoCmd);
+		const { stdout, stderr } = await exec(describeServiceCmd);
 		printLogInfo("========== Deployed Knative Service Information ==========");
 		const serviceInfoJson = JSON.parse(stdout);
+		const name = serviceInfoJson.metadata.name;
 		const status = serviceInfoJson.status.conditions.find((cond: any) => cond.type === "Ready").status;
+		const type = serviceInfoJson.status.conditions.find((cond: any) => cond.type === "Ready").type;
 		const url = serviceInfoJson.status.url;
+		const latestCreatedRevisionName = serviceInfoJson.status.latestCreatedRevisionName;
+		const latestReadyRevisionName = serviceInfoJson.status.latestReadyRevisionName;
 		// Parse the JSON-format information into string representation
-		let serviceInfo = `Service Name: ${serviceName}\n`;
-		serviceInfo += `Status: ${status === "True" ? "Ready" : "Not Ready\n"}`;
-		serviceInfo += `URL: ${url}`;
+		let serviceInfo = `Service Name: ${name}\n`;
+		serviceInfo += `- Status: ${status === "True" ? "Ready" : "Not Ready"}\n`;
+		serviceInfo += `- Type: ${type}\n`;
+		serviceInfo += `- URL: ${url}\n`;
+		serviceInfo += `- Latest Created Revision Name: ${latestCreatedRevisionName}\n`;
+		serviceInfo += `- Latest Ready Revision Name: ${latestReadyRevisionName}`;
 		printLogInfo(serviceInfo);
 		printLogInfo("==========================================================\n");
 	} catch (error) {
 		vscode.window.showErrorMessage("Failed to print Knative service information.");
+		printLogInfo("Failed to print Knative service information.\n");
 		console.error("Failed to print Knative service info: ", error);
 	}
 }
 
-/* ============================== Command: Delete Task ==============================*/
+/* ======================== Command: Describe All Knative Services =======================*/
+
+/**
+ * This function is invoked when command "Describe All Knative Services" is executed.
+ */
+async function callDescribeAllKnativeServices() {
+	describeAllKnativeServices();
+}
+
+/**
+ * Print useful information about all Knative services.
+ */
+async function describeAllKnativeServices() {
+	const describeServiceCmd = `kubectl get ksvc -o json`;
+	try {
+		// Retrieve the service information in JSON format
+		const { stdout, stderr } = await exec(describeServiceCmd);
+		printLogInfo("============ All Knative Services Information ============");
+		const servicesInfoJson = JSON.parse(stdout);
+		if (servicesInfoJson.items.length === 0) {
+			vscode.window.showErrorMessage("No Knative service found.");
+			printLogInfo("No Knative Service found.");
+		} else {
+			servicesInfoJson.items.forEach((serviceInfoJson: any) => {
+				const name = serviceInfoJson.metadata.name;
+				const status = serviceInfoJson.status.conditions.find((cond: any) => cond.type === "Ready").status;
+				const type = serviceInfoJson.status.conditions.find((cond: any) => cond.type === "Ready").type;
+				const url = serviceInfoJson.status.url;
+				const latestCreatedRevisionName = serviceInfoJson.status.latestCreatedRevisionName;
+				const latestReadyRevisionName = serviceInfoJson.status.latestReadyRevisionName;
+				let serviceInfo = `Service Name: ${name}\n`;
+				serviceInfo += `- Status: ${status === "True" ? "Ready" : "Not Ready"}\n`;
+				serviceInfo += `- Type: ${type}\n`;
+				serviceInfo += `- URL: ${url}\n`;
+				serviceInfo += `- Latest Created Revision Name: ${latestCreatedRevisionName}\n`;
+				serviceInfo += `- Latest Ready Revision Name: ${latestReadyRevisionName}`;
+				printLogInfo(serviceInfo);
+			});
+		}
+		printLogInfo("==========================================================\n");
+	} catch (error) {
+		vscode.window.showErrorMessage("Failed to print all Knative services information.");
+		printLogInfo("Failed to print all Knative services information.\n");
+		console.error("Failed to print all Knative services info: ", error);
+	}
+}
+
+/* ======================== Command: Delete Knative Service =========================*/
+
+/**
+ * This function is invoked when command "Delete Knative Service" is executed.
+ */
+async function callDeleteKnativeService() {
+	const serviceName = await vscode.window.showInputBox({
+		prompt: "Please enter the name of the Knative service to be deleted",
+		placeHolder: "xxx-service"
+	});
+	if (!serviceName) {
+		vscode.window.showErrorMessage("Name of the Knative service must be provided.");
+		printLogInfo("Name of the Knative service must be provided.\n");
+		return;
+	}
+	deleteKnativeService(serviceName);
+}
 
 /**
  * Delete the specified Knative service.
@@ -287,12 +372,13 @@ async function deleteKnativeService(serviceName: string) {
 	printLogInfo(`Start deleting the Knative service ${serviceName}.`);
 	try {
 		const { stdout, stderr } = await exec(deleteServiceCmd);
-		vscode.window.showInformationMessage(`Successfully deleted the Knative service: ${serviceName}`);
+		vscode.window.showInformationMessage(`Successfully deleted the Knative service: ${serviceName}.`);
 		printLogInfo(`Successfully deleted the Knative service ${serviceName}.\n`);
 
 	} catch (error) {
+		vscode.window.showErrorMessage(`Failed to delete the Knative service: ${serviceName}.`);
+		printLogInfo(`Failed to delete the Knative service: ${serviceName}.\n`);
 		console.error(error);
-		vscode.window.showErrorMessage(`Failed to delete the service: ${serviceName}`);
 	}
 }
 
@@ -300,11 +386,19 @@ async function deleteKnativeService(serviceName: string) {
 /* ===================================== Utils ======================================*/
 
 /**
+ * This function is invoked when command "Test AKSM" is executed.
+ */
+async function callTestExtension() {
+	vscode.window.showInformationMessage(`Extension ${EXTENSION_NAME} is working properly.`);
+	printLogInfo(`Extension ${EXTENSION_NAME} is working properly.\n`);
+}
+
+/**
  * Display the message in the user's terminal.
  * 
  * @param message Message to be displayed to the user.
  */
 async function printLogInfo(message: string) {
-    outputChannel.appendLine("[AKSM] " + message);
-    outputChannel.show(true);
+	outputChannel.appendLine("[AKSM] " + message);
+	outputChannel.show(true);
 }
