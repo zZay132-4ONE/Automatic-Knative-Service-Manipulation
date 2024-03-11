@@ -38,7 +38,7 @@ It currently supports the following commands:
 
     - Refer to "prerequisites" for required tools. 
 
-    - Make sure `minikube tunnel --profile knative` is executed to start the Minikube tunnel for Knative. 
+    - Make sure `minikube start -p knative` and `minikube tunnel --profile knative` are executed to start the Minikube tunnel for Knative. 
 
 1. Search for the extension "Automatic Knative Service Manipulation" in the VS Code marketplace and install it.
 
@@ -80,29 +80,11 @@ It currently supports the following commands:
 
     - You will need to specify the name of the Knative service ("service name") in the palette.
 
-## Relevant Tools
-
-- Kubernetes: https://kubernetes.io/
-
-- Knative: https://knative.dev/
-
-- Docker: https://www.docker.com/
-
-- Flask: https://flask.palletsprojects.com/en/3.0.x/
-
-- Yeoman Generator: https://yeoman.io/
-
-- Hugging Face: https://huggingface.co/models
-
 ## Release Notes
 
 ### 1.0.0
 
 Initial release of "Automatic Manipulation on Knative Service". 
-
-### 1.0.1
-
-Print real-time messages to the user's terminal for the latest progress. 
 
 ### 1.1.0
 
@@ -121,3 +103,35 @@ Replace usages of `kubectl` with `kn`.
 Rename commands `Deploy Knative Service` -> `aksm.deployKnService`, `Describe Knative Service` -> `aksm.describeKnService`, `Delete Knative Service` -> `aksm.deleteKnService`, `Test AKSM` -> `aksm.testExtension`.
 
 Update logs information.
+
+### 1.3.0
+
+Automate the building and pushing of Docker images with `BuildPack` for non Apple-Silicon-chip users.
+
+## Issues
+
+- For Mac Apple-Silicon-chip (M1, M2) users, their system cannot use `Buildpack` to automatically build and push a Docker image based on the source code.
+
+    - We have failed on known builder images that seem to support ARM64 architecture, such as `paketobuildpacks/builder` and `dashaun/builder-arm`, which can only automate the image building upon source codes in Java/Go/... (no Python solution). 
+
+    - There are other solutions that can help automatically build and push a Docker image based on the source codes, but they still cannot achieve our goals.
+
+        - For Knative Build, it's deprecated and no longer maintained for a long time. Hence, we do not consider using it.
+
+        - For Tekton Pipelines, it can support the automatic image building and pushing based on source codes under a ARM64 architecture. However, it requires us to create and define YAML files for the `Task` and `TaskRun`. 
+
+    - For non Apple-Silicon-chip users, they can use `pack build [IMAGE_NAME] --builder [BUILDER_NAME] --path [SOURCE_CODE_PATH]` to directly build and push the source code's corresponding Docker image, bypassing the steps for creating, building, and pushing the Docker image.
+
+## Relevant Tools
+
+- Kubernetes: https://kubernetes.io/
+
+- Knative: https://knative.dev/
+
+- Docker: https://www.docker.com/
+
+- Flask: https://flask.palletsprojects.com/en/3.0.x/
+
+- Yeoman Generator: https://yeoman.io/
+
+- Hugging Face: https://huggingface.co/models

@@ -30,7 +30,7 @@ const exec = util.promisify(childProcess.exec);
  */
 export function activate(context: vscode.ExtensionContext) {
 	printLogInfo(`Extension "${EXTENSION_NAME}" is activated.\n`);
-	
+
 	// Command for deploying a Knative service to Kubernetes cluster
 	let cmdDeployService = vscode.commands.registerCommand(`${EXTENSION_NAME}.deployKnService`, callDeployKnService);
 
@@ -78,11 +78,11 @@ async function callDeployKnService() {
 
 /**
  * This function automates the process of deploying a Knative service to Kubernetes:
+ * 	(Steps 1~3 can be substituted with Buildpack for non Apple-Silicon-chip users)
  * 	(1) Create the Dockerfile. 
- * 	(2) Creat the Knative service YAML configuration.
- * 	(3) Build the Docker image based on the Dockerfile.
- * 	(4) Push the built Docker image to the registry.
- * 	(5) Apply the YAML configuration and deploy the Knative service to the Kubernetes cluster.
+ * 	(2) Build the Docker image based on the Dockerfile.
+ * 	(3) Push the built Docker image to the registry.
+ * 	(4) Deploy the Knative service to the Kubernetes cluster.
  * 
  * @param registryName Name of the Docker image registry.
  * @param imageName Name of the Docker image.
@@ -95,17 +95,24 @@ async function deployKnService(registryName: string, imageName: string) {
 		return;
 	}
 
-	// Create the Dockerfile, build the Docker image, and push the image to the registry
 	const workSpaceFolderPath = workspaceFolders[0].uri.fsPath;
 	const dockerImageUri = `${registryName}/${imageName}`;
-	await createDockerfile(workSpaceFolderPath);
-	const buildImageSuccess = await buildDockerImage(dockerImageUri, workSpaceFolderPath);
-	if (!buildImageSuccess) {
-		return;
-	}
-	const pushImageSuccess = await pushDockerImage(dockerImageUri);
-	if (!pushImageSuccess) {
-		return;
+	const os = require('os');
+	if (os.arch() === "arm64") {
+		// Create the Dockerfile, build the Docker image, and push the image to the registry
+		await createDockerfile(workSpaceFolderPath);
+		const buildImageSuccess = await buildDockerImage(dockerImageUri, workSpaceFolderPath);
+		if (!buildImageSuccess) {
+			return;
+		}
+		// const pushImageSuccess = await pushDockerImage(dockerImageUri);
+		// if (!pushImageSuccess) {
+			// return;
+		// }
+	} else {
+		// For non Apple-Silicon-chip users, the create-build-push process belwo can be substituted
+		const sourceCodePath = "./";
+		automateImageBuildAndPush(dockerImageUri, sourceCodePath); 
 	}
 
 	// Create the Knative service and deploy it to Kubernetes cluster 
@@ -116,6 +123,31 @@ async function deployKnService(registryName: string, imageName: string) {
 	}
 	printLogInfo(`Knative service "${knServiceName}" is deployed.`);
 	printLogInfo(`You can use command "aksm.describeKnService" or "aksm.listKnServices" to check its details.\n`);
+}
+
+/**
+ * Automate the building and pushing of the Docker image using Buildpack.
+ * 
+ * @param dockerImageUri URI of the docker image to be built.
+ * @param sourceCodePath Path of the source codes.
+ * @returns {Promise<boolean>}  Whether successfully built and pushed the Docker image.
+ */
+async function automateImageBuildAndPush(dockerImageUri: string, sourceCodePath: string): Promise<boolean> {
+	const builderName = "paketobuildpacks/builder";
+	const automateBuildImageCmd = `pack build ${dockerImageUri} --builder ${builderName} --path ${sourceCodePath}`;
+	vscode.window.showInformationMessage(`Building and pushing the Docker image "${dockerImageUri}".`);
+	printLogInfo(`Start building and pushing the Docker image "${dockerImageUri}".`);
+	try {
+		const { stdout, stderr } = await exec(automateBuildImageCmd);
+		vscode.window.showInformationMessage(`Succcessfully built and pushed the Docker image "${dockerImageUri}".`);
+		printLogInfo(`Successfully built and pushed the Docker image "${dockerImageUri}".\n`);
+		return true;
+	} catch (error) {
+		vscode.window.showErrorMessage(`Failed to build and push the Docker image "${dockerImageUri}".`);
+		printLogInfo(`Failed to build and push the Docker image "${dockerImageUri}".`);
+		console.error(error);
+		return false;
+	}
 }
 
 /**
