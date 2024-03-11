@@ -105,10 +105,10 @@ async function deployKnService(registryName: string, imageName: string) {
 		if (!buildImageSuccess) {
 			return;
 		}
-		// const pushImageSuccess = await pushDockerImage(dockerImageUri);
-		// if (!pushImageSuccess) {
-			// return;
-		// }
+		const pushImageSuccess = await pushDockerImage(dockerImageUri);
+		if (!pushImageSuccess) {
+			return;
+		}
 	} else {
 		// For non Apple-Silicon-chip users, the create-build-push process belwo can be substituted
 		const sourceCodePath = "./";
